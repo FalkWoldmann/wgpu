@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use core::{ffi, ptr};
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use windows::{
     core::Interface as _,
     Win32::{Foundation::HWND, Graphics::DirectComposition},
@@ -12,13 +12,13 @@ use super::DynLib;
 // Lazy-loaded DirectComposition library
 #[derive(Debug)]
 pub(crate) struct DCompLib {
-    lib: Lazy<Result<DynLib, crate::SurfaceError>>,
+    lib: LazyLock<Result<DynLib, crate::SurfaceError>>,
 }
 
 impl DCompLib {
     pub(crate) fn new() -> Self {
         Self {
-            lib: Lazy::new(|| unsafe {
+            lib: LazyLock::new(|| unsafe {
                 DynLib::new("dcomp.dll").map_err(|err| {
                     log::error!("Error loading dcomp.dll: {err}");
                     crate::SurfaceError::Other("Error loading dcomp.dll")
@@ -28,7 +28,7 @@ impl DCompLib {
     }
 
     fn get_lib(&self) -> Result<&DynLib, crate::SurfaceError> {
-        match self.lib.as_ref() {
+        match self.lib.force() {
             Ok(lib) => Ok(lib),
             Err(err) => Err(err.clone()),
         }

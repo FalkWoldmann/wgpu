@@ -99,9 +99,12 @@ void main() {
         clippy::todo
     )
 )]
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(std)]
+#[cfg(all(not(feature = "std"), not(feature = "once_cell")))]
+compile_error!("naga built without `std` requires the `once_cell` feature to be enabled.");
+
+#[cfg(feature = "std")]
 extern crate std;
 
 extern crate alloc;

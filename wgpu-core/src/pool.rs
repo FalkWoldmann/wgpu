@@ -2,13 +2,47 @@ use alloc::sync::{Arc, Weak};
 use core::hash::Hash;
 
 use hashbrown::{hash_map::Entry, HashMap};
-use once_cell::sync::OnceCell;
+use std::sync::{Mutex as StdMutex, OnceLock};
 
 use crate::lock::{rank, Mutex};
 use crate::FastHashMap;
 
 type SlotInner<V> = Weak<V>;
-type ResourcePoolSlot<V> = Arc<OnceCell<SlotInner<V>>>;
+type ResourcePoolSlot<V> = Arc<Slot<V>>;
+
+struct Slot<V> {
+    value: OnceLock<SlotInner<V>>,
+    init_lock: StdMutex<()>,
+}
+
+impl<V> Slot<V> {
+    fn new() -> Self {
+        Self {
+            value: OnceLock::new(),
+            init_lock: StdMutex::new(()),
+        }
+    }
+
+    fn get_or_try_init<F, E>(&self, init: F) -> Result<(SlotInner<V>, Option<Arc<V>>), E>
+    where
+        F: FnOnce() -> Result<Arc<V>, E>,
+    {
+        if let Some(existing) = self.value.get() {
+            return Ok((existing.clone(), None));
+        }
+
+        let _guard = self.init_lock.lock().expect("Slot init lock poisoned");
+
+        if let Some(existing) = self.value.get() {
+            return Ok((existing.clone(), None));
+        }
+
+        let strong = init()?;
+        let weak = Arc::downgrade(&strong);
+        let _ = self.value.set(weak.clone());
+        Ok((weak, Some(strong)))
+    }
+}
 
 pub struct ResourcePool<K, V> {
     inner: Mutex<FastHashMap<K, ResourcePoolSlot<V>>>,
@@ -50,24 +84,18 @@ impl<K: Clone + Eq + Hash, V> ResourcePool<K, V> {
                 // No entry exists for this resource.
                 //
                 // We know that the resource is not alive, so we can create a new entry.
-                Entry::Vacant(entry) => Arc::clone(entry.insert(Arc::new(OnceCell::new()))),
+                Entry::Vacant(entry) => Arc::clone(entry.insert(Arc::new(Slot::new()))),
             };
 
             drop(map_guard);
 
-            // Some other thread may beat us to initializing the entry, but OnceCell guarantees that only one thread
+            // Some other thread may beat us to initializing the entry, but OnceLock guarantees that only one thread
             // will actually initialize the entry.
             //
             // We pass the strong reference outside of the closure to keep it alive while we're the only one keeping a reference to it.
-            let mut strong = None;
-            let weak = entry.get_or_try_init(|| {
-                let strong_inner = constructor.take().unwrap()(key.take().unwrap())?;
-                let weak = Arc::downgrade(&strong_inner);
-                strong = Some(strong_inner);
-                Ok(weak)
-            })?;
+            let (weak, strong) =
+                entry.get_or_try_init(|| constructor.take().unwrap()(key.take().unwrap()))?;
 
-            // If strong is Some, that means we just initialized the entry, so we can just return it.
             if let Some(strong) = strong {
                 return Ok(strong);
             }

@@ -19,7 +19,8 @@ rust-version = "1.82.0"
 all-features = true
 
 [features]
-default = []
+default = ["std"]
+std = []
 dot-out = []
 glsl-in = ["dep:pp-rs"]
 glsl-out = []
@@ -58,7 +59,7 @@ arbitrary = [
 ]
 spv-in = ["dep:petgraph", "petgraph/graphmap", "dep:spirv"]
 spv-out = ["dep:spirv"]
-wgsl-in = ["dep:hexf-parse", "dep:unicode-ident"]
+wgsl-in = ["std", "dep:hexf-parse", "dep:unicode-ident"]
 wgsl-out = []
 
 ## Enables outputting to HLSL (Microsoft's High-Level Shader Language).
@@ -76,10 +77,10 @@ hlsl-out-if-target-windows = []
 termcolor = ["codespan-reporting/termcolor"]
 
 ## Enables writing output to stderr.
-stderr = ["codespan-reporting/std"]
+stderr = ["std", "codespan-reporting/std"]
 
 ## Enables integration with the underlying filesystem.
-fs = []
+fs = ["std"]
 
 [dependencies]
 arbitrary = { workspace = true, features = ["derive"], optional = true }
@@ -95,7 +96,7 @@ indexmap.workspace = true
 libm = { workspace = true, default-features = false }
 log.workspace = true
 num-traits.workspace = true
-once_cell = { workspace = true, features = ["alloc", "race"] }
+once_cell = { workspace = true, features = ["alloc", "race"], optional = true }
 spirv = { workspace = true, optional = true }
 thiserror.workspace = true
 serde = { workspace = true, features = ["alloc", "derive"], optional = true }

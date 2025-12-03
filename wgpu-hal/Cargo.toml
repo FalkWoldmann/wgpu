@@ -138,7 +138,6 @@ dx12 = [
     "dep:libloading",
     "dep:log",
     "dep:ordered-float",
-    "dep:once_cell",
     "dep:parking_lot",
     "dep:profiling",
     "dep:range-alloc",
@@ -254,7 +253,6 @@ windows-core = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 range-alloc = { workspace = true, optional = true }
 gpu-allocator = { workspace = true, optional = true, features = ["d3d12"] }
-once_cell = { workspace = true, optional = true }
 # backend: GLES
 glutin_wgl_sys = { workspace = true, optional = true }
 

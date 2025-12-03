@@ -18,7 +18,7 @@ use crate::{
     Span, Statement, TypeInner, WithSpan,
 };
 
-#[cfg(no_std)]
+#[cfg(not(feature = "std"))]
 use num_traits::float::FloatCore as _;
 
 #[derive(Error, Debug, Clone)]
